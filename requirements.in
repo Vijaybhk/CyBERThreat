@@ -2,3 +2,8 @@ requests
 pandas
 jupyter
 scikit-learn
+torch
+transformers
+huggingface-hub
+streamlit
+streamlit_extras

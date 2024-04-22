@@ -78,9 +78,11 @@ def main():
                 confidentiality.append(metrics['cvssData']['confidentialityImpact'])
                 integrity.append(metrics['cvssData']['integrityImpact'])
                 availability.append(metrics['cvssData']['availabilityImpact'])
-                description.append(
-                    text['value'] for text in new_data[idx]['cve']['descriptions'] if text["lang"] == "en"
-                )
+
+                for text in new_data[idx]['cve']['descriptions']:
+                    if text["lang"] == "en":
+                        description.append(text["value"])
+
                 last_modified_date.append(new_data[idx]['cve']['lastModified'])
                 published_date.append(new_data[idx]['cve']['published'])
                 base_score.append(metrics['cvssData']['baseScore'])
@@ -115,11 +117,12 @@ def main():
     print('Total CVEs with CVSS base score: {}'.format(len(df)))
     print('Total percentage: {}'.format(len(df) / (len(data) + len(new_data))))
 
-    df.to_csv(f"{data_dir}/cve.csv", sep=";")
+    df.to_pickle(f"{data_dir}/cve")
 
     df_train, df_test = train_test_split(df, test_size=0.2, random_state=42)
-    df_train.to_csv(f"{splits_dir}/train_data.csv", sep=";")
-    df_test.to_csv(f"{splits_dir}/test_data.csv", sep=";")
+
+    df_train.to_pickle(f"{splits_dir}/train_data")
+    df_test.to_pickle(f"{splits_dir}/test_data")
 
     return
 
