@@ -149,6 +149,7 @@ class CyBERThreat:
             metric_results = dict()
             for metric in ['attack_vector', 'attack_complexity', 'privileges_required', 'user_interaction', 'integrity']:
                 result = self.get_prediction(hub_path=f"Vijaybhk/{metric.title()}-BERT", text=text)
+                st.cache_resource.clear()
                 self.outputs(var=metric, out_value=result)
                 metric_results[metric] = result
 
