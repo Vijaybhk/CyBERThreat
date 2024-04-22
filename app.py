@@ -16,6 +16,39 @@ def get_model(hub_path, model_str):
     return tokenizer, model
 
 
+def custom_markdown(display_md):
+    st.markdown(
+        """
+        <style>
+        .big-font {
+        font-size:22px !important;
+        color: #FFC300;
+        width: 300px;
+        }
+        </style>
+        """ +
+        f"<p class='big-font'> {display_md} </p>",
+        unsafe_allow_html=True)
+    return
+
+
+def custom_button(button_disp, button_key, button_color="#63C5DA", text_color="black", disabled=True):
+    with stylable_container(
+            f"{button_key}",
+            css_styles="button {" +
+            f"background-color: {button_color};" +
+            f"color: {text_color};" +
+            """ }
+            div[data-testid='column'] {
+                width: fit-content !important;
+                flex: unset;
+                }
+            """,
+    ):
+        cust_button = st.button(f"{button_disp}", disabled=disabled, key=f"{button_key}")
+    return cust_button
+
+
 class CyBERThreat:
     id_to_label = {
         'attack_vector': {
@@ -71,15 +104,7 @@ class CyBERThreat:
         st.divider()
         input_text = st.text_area("Enter vulnerability description here...")
         # run_button = st.button("Run")
-        with stylable_container(
-                "red",
-                css_styles="""
-                    button {
-                        background-color: #FF4B4B;
-                        color: white;
-                    }""",
-        ):
-            run_button = st.button("Run", key="run")
+        run_button = custom_button("Run", "run", "#FF4B4B", "white", False)
 
         return input_text, run_button
 
@@ -100,61 +125,77 @@ class CyBERThreat:
 
         return pred
 
-    def outputs(self, var: str, out_value: int | None = None):
-        var_values = self.id_to_label[var]
-        n_uniques = len(var_values)
+    @staticmethod
+    def outputs(var: str, out_value: int, var_uniques: list | dict, button_color="#63C5DA"):
+        label = var_uniques[out_value]
+        n_uniques = len(var_uniques)
         cols = st.columns([1]*(n_uniques+1))
 
         for i in range(n_uniques+1):
             with cols[i]:
                 if out_value == i-1:
-                    # Create buttons with st.button
-                    with stylable_container(
-                            "blue",
-                            css_styles="""
-                                button {
-                                    background-color: #63C5DA;
-                                    color: black;
-                                    }
-                                div[data-testid="column"] {
-                                    width: fit-content !important;
-                                    flex: unset;
-                                    }
-                                """,
-                    ):
-                        st.button(f"{var_values[out_value]}", disabled=True, key=f"{var}{i-1}")
+                    custom_button(button_disp=label, button_key=f"{var}{i - 1}", button_color=button_color)
                     # st.button(f":green[{var_values[out_value]}]", disabled=True)
                 elif i == 0:
                     disp = var.replace("_", " ").upper()
-                    st.markdown("""
-                    <style>
-                    .big-font {
-                        font-size:22px !important;
-                        color: #FFC300;
-                        width: 300px;
-                    }
-                    </style>
-                    <p class="big-font">""" + disp +
-                                ":</p>", unsafe_allow_html=True)
+                    custom_markdown(display_md=disp)
                 else:
-                    st.button(f"{var_values[i-1]}", disabled=True, key=f"{var}{i-1}")
+                    st.button(f"{var_uniques[i-1]}", disabled=True, key=f"{var}{i-1}")
 
+        return label
+
+    @staticmethod
+    def display_score(score, value):
+        col1, col2 = st.columns([1] * 2)
+        with col1:
+            custom_markdown(display_md=f"{score.upper()} SCORE")
+        with col2:
+            custom_button(button_disp=value, button_key=f"{score}")
         return
 
     def app(self):
         text, run = self.styling()
         if run and text:
             st.write("")
-            st.subheader(":red[Metrics]")
+            st.subheader(":red[METRICS]")
             metric_results = dict()
-            for metric in ['attack_vector', 'attack_complexity', 'privileges_required', 'user_interaction', 'integrity']:
+            for metric in self.id_to_label.keys():
                 result = self.get_prediction(hub_path=f"Vijaybhk/{metric.title()}-BERT", text=text)
                 st.cache_resource.clear()
-                self.outputs(var=metric, out_value=result)
-                metric_results[metric] = result
+                var_values = self.id_to_label[metric]
+                label = self.outputs(var=metric, out_value=result, var_uniques=var_values)
+                metric_results[metric] = label.lower()
 
             st.write("")
-            st.subheader(":red[Scores]")
+            st.subheader(":red[SCORES]")
+            b, i, e = CVSScore(metrics=metric_results).calculate_scores()
+            for score in ["Impact", "Exploitability", "Base"]:
+                if score == "Base":
+                    self.display_score(score, b)
+                elif score == "Impact":
+                    self.display_score(score, i)
+                elif score == "Exploitability":
+                    self.display_score(score, e)
+
+            sev_list = ["NONE", "LOW", "MEDIUM", "HIGH", "CRITICAL"]
+            if b == 0.0:
+                severity = 0
+                sev_color = "#50C878"
+            elif 0.1 <= b <= 3.9:
+                severity = 1
+                sev_color = "#7CFC00"
+            elif 4.0 <= b <= 6.9:
+                severity = 2
+                sev_color = "#FFBF00"
+            elif 7 <= b <= 8.9:
+                severity = 3
+                sev_color = "#FF5F1F"
+            else:
+                severity = 4
+                sev_color = "#C70039"
+
+            self.outputs("severity", severity,sev_list, sev_color)
+
         return
 
 
